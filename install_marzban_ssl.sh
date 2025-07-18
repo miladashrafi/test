@@ -48,61 +48,80 @@ done
 read_input "🔑 Enter your Cloudflare API Token" CF_Token
 read_input "🆔 Enter your Cloudflare Account ID" CF_Account_ID
 
-echo "⏳ Starting Marzban Docker container and monitoring logs..."
+echo "🟢 Starting Marzban container in detached mode..."
+docker compose up -d
 
-# Start marzban container in foreground (no detach)
-docker compose up marzban --no-log-prefix &
-
-# Get marzban container ID (wait a bit if not found)
-sleep 5
-container_id=""
-for i in {1..5}; do
-  container_id=$(docker ps --filter "name=marzban" --format "{{.ID}}")
-  if [[ -n "$container_id" ]]; then break; fi
-  sleep 2
-done
-
+# Get container id
+container_id=$(docker ps --filter "name=marzban" --format "{{.ID}}")
 if [[ -z "$container_id" ]]; then
   echo "❌ Marzban container not found running."
   exit 1
 fi
 
 timeout=120
-elapsed=0
 interval=3
-found_prompt=0
+elapsed=0
+found=0
 
-echo "📝 Monitoring container logs for 'Press CTRL+C to quit' (timeout: ${timeout}s)..."
+echo "⏳ Waiting for startup prompt in logs (timeout: ${timeout}s)..."
+
+# Start background log follow and detect prompt
+found_flag_file=$(mktemp)
+trap 'rm -f "$found_flag_file"' EXIT
+
+docker logs -f "$container_id" | while IFS= read -r line; do
+  echo "$line"
+  if [[ "$line" == *"Press CTRL+C to quit"* ]]; then
+    touch "$found_flag_file"
+    break
+  fi
+done &
+log_pid=$!
 
 while (( elapsed < timeout )); do
-  if docker logs --tail 20 "$container_id" 2>/dev/null | grep -q "Press CTRL+C to quit"; then
-    found_prompt=1
+  if [[ -f "$found_flag_file" ]]; then
+    found=1
     break
   fi
   sleep $interval
   ((elapsed+=interval))
 done
 
-if (( found_prompt == 1 )); then
+# Stop log follower process
+kill $log_pid 2>/dev/null || true
+
+if (( found == 1 )); then
   echo "✅ Startup prompt detected, continuing..."
 else
-  echo "❌ Timeout (${timeout}s) waiting for startup prompt."
+  echo "❌ Timeout waiting for startup prompt."
   while true; do
     read -rp "Retry waiting for logs? (y/n): " choice
     case "$choice" in
       y|Y)
         elapsed=0
-        echo "Retrying..."
+        found=0
+        # Restart log follower
+        docker logs -f "$container_id" | while IFS= read -r line; do
+          echo "$line"
+          if [[ "$line" == *"Press CTRL+C to quit"* ]]; then
+            touch "$found_flag_file"
+            break
+          fi
+        done &
+        log_pid=$!
+
         while (( elapsed < timeout )); do
-          if docker logs --tail 20 "$container_id" 2>/dev/null | grep -q "Press CTRL+C to quit"; then
-            echo "✅ Startup prompt detected, continuing..."
-            found_prompt=1
+          if [[ -f "$found_flag_file" ]]; then
+            found=1
             break
           fi
           sleep $interval
           ((elapsed+=interval))
         done
-        if (( found_prompt == 1 )); then
+
+        kill $log_pid 2>/dev/null || true
+        if (( found == 1 )); then
+          echo "✅ Startup prompt detected, continuing..."
           break
         else
           echo "❌ Timeout again."
