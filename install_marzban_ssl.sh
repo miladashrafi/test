@@ -50,7 +50,7 @@ echo "💾 Installing certificate..."
 ~/.acme.sh/acme.sh --install-cert -f -d "$CF_Domain" \
 --key-file       /root/.acme.sh/${CF_Domain}_ecc/${CF_Domain}.key \
 --fullchain-file /root/.acme.sh/${CF_Domain}_ecc/fullchain.cer \
---reloadcmd     "cp /root/.acme.sh/${CF_Domain}_ecc/${CF_Domain}.key /var/lib/marzban/certs/${CF_Domain}.key && cp /root/.acme.sh/${CF_Domain}_ecc/fullchain.cer /var/lib/marzban/certs/${CF_Domain}-fullchain.cer && docker restart marzban-marzban-1"
+--reloadcmd     "mkdir -p /var/lib/marzban/certs && cp /root/.acme.sh/${CF_Domain}_ecc/${CF_Domain}.key /var/lib/marzban/certs/${CF_Domain}.key && cp /root/.acme.sh/${CF_Domain}_ecc/fullchain.cer /var/lib/marzban/certs/${CF_Domain}-fullchain.cer && docker restart marzban-marzban-1"
 
 # === Step 5: Create Admin User ===
 echo "👤 Creating admin user..."
