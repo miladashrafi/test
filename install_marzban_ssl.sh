@@ -44,10 +44,10 @@ export CF_Domain="$CF_Domain"
 ~/.acme.sh/acme.sh --set-default-ca --server letsencrypt
 
 echo "📜 Issuing certificate for $CF_Domain ..."
-~/.acme.sh/acme.sh --issue --dns dns_cf -d "$CF_Domain"
+~/.acme.sh/acme.sh --issue -f --dns dns_cf -d "$CF_Domain"
 
 echo "💾 Installing certificate..."
-~/.acme.sh/acme.sh --install-cert -d "$CF_Domain" \
+~/.acme.sh/acme.sh --install-cert -f -d "$CF_Domain" \
 --key-file       /root/.acme.sh/${CF_Domain}_ecc/${CF_Domain}.key \
 --fullchain-file /root/.acme.sh/${CF_Domain}_ecc/fullchain.cer \
 --reloadcmd     "cp /root/.acme.sh/${CF_Domain}_ecc/${CF_Domain}.key /var/lib/marzban/certs/${CF_Domain}.key && cp /root/.acme.sh/${CF_Domain}_ecc/fullchain.cer /var/lib/marzban/certs/${CF_Domain}-fullchain.cer && docker restart marzban-marzban-1"
